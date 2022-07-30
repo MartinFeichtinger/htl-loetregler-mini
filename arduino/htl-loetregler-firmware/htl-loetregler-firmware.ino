@@ -43,7 +43,7 @@ uint16_t tempSoll = 330;
 uint16_t tempSpitze = 999;
 bool standby = false;
 uint32_t timeLastTempIncrease = 0;
-bool loetkolbenVerbunden=true;
+bool loetkolbenVerbunden=false;
 
 enum Screen {BootScreen, MainScreen} activeScreen = BootScreen;
 
