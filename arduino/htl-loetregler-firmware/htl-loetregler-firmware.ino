@@ -1,5 +1,3 @@
-
-
 #include <stdlib.h>
 #include <time.h>
 #include <SPI.h>
@@ -45,6 +43,7 @@ uint16_t tempSoll = 330;
 uint16_t tempSpitze = 999;
 bool standby = false;
 uint32_t timeLastTempIncrease = 0;
+bool loetkolbenVerbunden=true;
 
 enum Screen {BootScreen, MainScreen} activeScreen = BootScreen;
 
@@ -155,21 +154,26 @@ void mainScreen() {
   // Draw/Print Dynamic Objects:
   {
     // Ist Temperatur
-    //tempSpitze = temperaturSpitze(); 
+    // tempSpitze = temperaturSpitze(); 
     // tempSpitze wird aus regler() übernommen
-    static int32_t sumTemp = 0;
-    sumTemp += tempSpitze;
-    if (updateCounter <= 0) {
+    if(loetkolbenVerbunden) {
+      static int32_t sumTemp = 0;
+      sumTemp += tempSpitze;
+      if (updateCounter <= 0) {
+        display.setCursor(2, 1);
+        display.setTextSize(3);
+        sprintf(str, "%d", uint16_t(sumTemp / UpdatePeriod));
+        display.print(str);
+        sumTemp = 0;
+      }
+    }
+    else {
       display.setCursor(2, 1);
       display.setTextSize(3);
-      sprintf(str, "%d", uint16_t(sumTemp / UpdatePeriod));
-      display.print(str);
-      sumTemp = 0;
+      display.print("---");
     }
 
     // Soll Temperatur
-
-
     display.setCursor(36, 24);
     display.setTextSize(1);
     sprintf(str, "%d", uint16_t(tempSoll));
@@ -291,7 +295,14 @@ void selbsthaltung() {
 }
 
 float temperaturSpitze() {
-  return spannungMessen(PIN_AIN_TempSensor) / 221 / 24e-6 + 30; // in °C
+  uint16_t tempSpitze=spannungMessen(PIN_AIN_TempSensor) / 221 / 24e-6 + 30; // in °C
+  if(tempSpitze > 500) {
+    loetkolbenVerbunden=false;
+  }
+  else {
+    loetkolbenVerbunden=true;
+  }
+  return tempSpitze;
 }
 
 float spannungBatterie() {
