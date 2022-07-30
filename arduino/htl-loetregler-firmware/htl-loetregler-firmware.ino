@@ -249,13 +249,18 @@ void tasterAuswertung(){
     tempSoll -= 10;
   }
   if (buttons.back->getEvent() == Button::PressedEvent) {
-    standby = true;
+    
   }
   if (buttons.enter->getEvent() == Button::PressedEvent) {
-    standby = false;
+    
   }
-  if ((buttons.power->getEvent() == Button::PressedEvent) && millis() > 1000) {
-    abschalten();
+  if ((buttons.power->getEvent() == Button::ReleasedEvent) && millis() > 1000) {
+    if((buttons.power->tLastReleased-buttons.power->tLastPressed) > 1000) {
+      abschalten();
+    }
+    else {
+      standby =! standby;
+    }
   }
   tempSoll = constrain(tempSoll, 50, 450);
 }
