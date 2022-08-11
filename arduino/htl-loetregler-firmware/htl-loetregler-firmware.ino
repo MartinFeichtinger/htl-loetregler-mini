@@ -34,18 +34,27 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define SPANNUNG_LEER (32.0/DIVISOR)
 
 #define MIT_NAMEN
-#define VORNAME  "PROF."
-#define NACHNAME "ZEILHOFER"
+#define VORNAME  "OTELO"
+#define NACHNAME "Gmunden"
 
 
 char str[20] = {0};
-uint16_t tempSoll = 330;
+uint16_t tempSoll = 100;
 uint16_t tempSpitze = 999;
 bool standby = false;
 uint32_t timeLastTempIncrease = 0;
 bool loetkolbenVerbunden=false;
 
-enum Screen {BootScreen, MainScreen} activeScreen = BootScreen;
+enum Setting {STROMVERSORGUNG=0, MAX_STROM=1, AUTO_STANDBY=2, STANDBY_TEMP=3} activeSetting=STROMVERSORGUNG;
+enum Stromversorgung {AKKU=0, NETZTEIL=1} stromversorgung=AKKU;
+uint8_t maxStrom=30;  // entspricht 3A
+uint8_t standbyTemp=150;
+bool autoStandby=true;
+bool modifySetting=false;
+float oldSettingValue;
+
+enum Screen {BootScreen, MainScreen, SettingsScreen} activeScreen = BootScreen;
+enum Screen oldScreen;
 
 void setup() {
   pinMode(PIN_Selbsthaltung, OUTPUT);
@@ -83,6 +92,8 @@ void setup() {
 
   pinMode(PIN_Heizelement, OUTPUT);
   analogWrite(PIN_Heizelement, 3);
+  oldScreen=activeScreen;
+  activeScreen=MainScreen;
 }
 
 void nameAnzeigen(){
@@ -104,7 +115,7 @@ void mainScreen() {
   static int8_t updateCounter = UpdatePeriod;
   // paint static objects
 
-  if (activeScreen != MainScreen) {
+  if (oldScreen != MainScreen) {
     updateCounter = 0;
     activeScreen = MainScreen;
     display.clearDisplay();
@@ -163,6 +174,7 @@ void mainScreen() {
         display.setCursor(2, 1);
         display.setTextSize(3);
         sprintf(str, "%d", uint16_t(sumTemp / UpdatePeriod));
+        //sprintf(str, "%d", uint16_t(tempSpitze));
         display.print(str);
         sumTemp = 0;
       }
@@ -209,6 +221,70 @@ void mainScreen() {
   if (updateCounter <= 0) {
     updateCounter = UpdatePeriod;
   }
+
+  oldScreen=MainScreen;
+  display.display();
+}
+
+// geht noch nicht
+void settingsScreen(){
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  
+  switch(activeSetting) {
+    case STROMVERSORGUNG: {
+        if(modifySetting) {
+          if(stromversorgung == AKKU) {
+            display.print("Akku");
+          }
+          else if(stromversorgung == NETZTEIL) {
+            display.print("Netzteil");
+          }
+        }
+        else {
+          display.print("Strom-\nversorgung");
+        }
+      break;
+    }
+    case MAX_STROM: {
+        if(modifySetting) {
+          sprintf(str, "%d.%dA", maxStrom/10, maxStrom%10);
+          display.print(str);
+        }
+        else {
+          display.print("Strom-\nbegrenzung");          
+        }
+      break;
+    }
+    case AUTO_STANDBY: {
+        if(modifySetting) {
+          if(autoStandby == true) {
+            display.print("Aktiviert");
+          }
+          else if(autoStandby == false) {
+            display.print("Deaktiviert");
+          }
+        }
+        else {
+          display.print("Auto-     Standby");
+        }
+      break;
+    }
+    case STANDBY_TEMP: {
+        if(modifySetting) {
+          sprintf(str, "%d C", standbyTemp);
+          display.print(str);
+        }
+        else {
+          display.print("Standby   Temperatur");          
+        }
+      break;
+    }
+  }
+  
+  oldScreen=SettingsScreen;
   display.display();
 }
 
@@ -217,17 +293,17 @@ uint8_t batterieZustand() {
   int32_t ret = constrain(
                   100.0/(SPANNUNG_VOLL-SPANNUNG_LEER)*(spannungBatterie()-SPANNUNG_LEER), 
                   0, 100);
-  Serial.println(ret);
+  //Serial.println(ret);
   return ret;
 }
 
 void regler(){
-  float stromMesswert;
+  int stromMesswert;
+  static uint8_t dutyCycle=20;
 
   tempSpitze = temperaturSpitze();
-  if ((!standby && (tempSpitze < tempSoll)) ||
-      (standby && (tempSpitze < 150))) {
-    analogWrite(PIN_Heizelement, 250); // nicht 100% PWM (=255), damit der Bootstrap-Kondensator nachladen kann!
+  if ((!standby && (tempSpitze < tempSoll)) || (standby && (tempSpitze < 150))) {
+    analogWrite(PIN_Heizelement, dutyCycle); // nicht 100% PWM (=255), damit der Bootstrap-Kondensator nachladen kann!
   }
   if(tempSpitze+80 < tempSoll){
     // beschleunigtes Heizen
@@ -242,17 +318,81 @@ void regler(){
 void tasterAuswertung(){
   buttons.readAll();
   if (buttons.up->getEvent() == Button::PressedEvent) {
-    tempSoll += 10;
-    timeLastTempIncrease = millis();
+
+    switch(activeScreen) {
+      case MainScreen: {
+        tempSoll += 10;
+        timeLastTempIncrease = millis();        
+        break;
+      }
+      case SettingsScreen: {
+        if(modifySetting) {
+          switch(activeSetting) {
+            case STROMVERSORGUNG: stromversorgung = (Stromversorgung)((int)stromversorgung -1); break;
+            case MAX_STROM: maxStrom+=2; break;   //=0,2A
+            case AUTO_STANDBY: autoStandby=true; break;
+            case STANDBY_TEMP: standbyTemp+=10; break;
+          }
+        }
+        else {
+          activeSetting = (Setting)((int)activeSetting - 1);  // muss hier so umständlich gechastet werden da enums in c++ anders funktionieren
+        }
+        break;
+      }
+    }
   }
   if (buttons.down->getEvent() == Button::PressedEvent) {
-    tempSoll -= 10;
+    switch(activeScreen) {
+      case MainScreen: tempSoll -= 10; break;
+      case SettingsScreen: {
+        if(modifySetting) {
+          switch(activeSetting) {
+            case STROMVERSORGUNG: stromversorgung = (Stromversorgung)((int)stromversorgung +1); break;
+            case MAX_STROM: maxStrom-=2; break;
+            case AUTO_STANDBY: autoStandby=false; break;
+            case STANDBY_TEMP: standbyTemp-=10; break;
+          }          
+        }
+        else {
+          activeSetting = (Setting)((int)activeSetting + 1);
+        }
+        break;
+      }
+    }
   }
   if (buttons.back->getEvent() == Button::PressedEvent) {
-    
+    if(modifySetting) {
+      modifySetting=false;
+      switch(activeSetting) {
+        case STROMVERSORGUNG: stromversorgung = (Stromversorgung)oldSettingValue; break;
+        case MAX_STROM: maxStrom = oldSettingValue; break;
+        case AUTO_STANDBY: autoStandby = oldSettingValue; break;
+        case STANDBY_TEMP: standbyTemp = oldSettingValue; break;
+      }  
+    }
+    else {
+      activeScreen=MainScreen; 
+    }
   }
   if (buttons.enter->getEvent() == Button::PressedEvent) {
-    
+    if(activeScreen == MainScreen) {
+      activeScreen=SettingsScreen;
+      // vieleicht in standby gehen
+    }
+    else {
+      if(modifySetting) {
+        modifySetting=false;  // Der Wert wir gespeichert und man kommt zurück in MENU
+      }
+      else {
+        switch(activeSetting) {
+          case STROMVERSORGUNG: oldSettingValue = (uint8_t)stromversorgung; break;
+          case MAX_STROM: oldSettingValue = maxStrom; break;
+          case AUTO_STANDBY: oldSettingValue = autoStandby; break;
+          case STANDBY_TEMP: oldSettingValue = standbyTemp; break;
+        }
+        modifySetting=true;
+      }
+    }
   }
   if ((buttons.power->getEvent() == Button::ReleasedEvent) && millis() > 1000) {
     if((buttons.power->tLastReleased-buttons.power->tLastPressed) > 1000) {
@@ -263,10 +403,18 @@ void tasterAuswertung(){
     }
   }
   tempSoll = constrain(tempSoll, 50, 450);
+  activeSetting = constrain(activeSetting, 0, 3);
+  stromversorgung = constrain(stromversorgung, 0, 1);
+  maxStrom = constrain(maxStrom, 10, 100);    // 1-10A
+  standbyTemp = constrain(standbyTemp, 50, 250);
 }
 
 void loop() {
-  mainScreen();
+  switch(activeScreen) {
+    case MainScreen: mainScreen(); break;
+    case SettingsScreen: settingsScreen(); break;
+  }
+    
   regler();
   tasterAuswertung();
   selbsthaltung();
