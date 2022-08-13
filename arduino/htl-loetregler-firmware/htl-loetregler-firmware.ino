@@ -45,11 +45,19 @@ bool standby = false;
 uint32_t timeLastTempIncrease = 0;
 bool loetkolbenVerbunden=false;
 
-enum Setting {STROMVERSORGUNG=0, MAX_STROM=1, AUTO_STANDBY=2, STANDBY_TEMP=3} activeSetting=STROMVERSORGUNG;
-enum Stromversorgung {AKKU=0, NETZTEIL=1} stromversorgung=AKKU;
-uint8_t maxStrom=30;  // entspricht 3A
-uint8_t standbyTemp=150;
-bool autoStandby=true;
+enum Setting {STROMVERSORGUNG=0, MAX_STROM=1, NENNSPANNUNG=2, AUTO_STANDBY=3, STANDBY_TEMP=4, STANDBY_DELAY=5} activeSetting=STROMVERSORGUNG;
+String settingName[6]={"Strom-\nversorgung", "Strom-\nbegrenzung", "Nenn-\nspannung", "Auto-\nStandby", "Standby\nTemperatur", "Standby-\nDelay"}; 
+enum Stromversorgung {AKKU=0, NETZTEIL=1};
+
+struct Settings {
+  enum Stromversorgung stromversorgung=AKKU;
+  uint8_t maxStrom=30;  // entspricht 3A
+  uint8_t nennspannung=48;
+  uint8_t standbyTemp=150;
+  bool autoStandby=true;
+  uint8_t standbyDelay=60;
+} setting;
+  
 bool modifySetting=false;
 float oldSettingValue;
 
@@ -232,58 +240,53 @@ void settingsScreen(){
   display.setCursor(0,0);
   display.setTextSize(2);
   display.setTextColor(WHITE);
-  
-  switch(activeSetting) {
-    case STROMVERSORGUNG: {
-        if(modifySetting) {
-          if(stromversorgung == AKKU) {
-            display.print("Akku");
-          }
-          else if(stromversorgung == NETZTEIL) {
-            display.print("Netzteil");
-          }
+
+  if(!modifySetting) {
+    display.print(settingName[activeSetting]);
+  }
+  else {
+    switch(activeSetting) {
+      case STROMVERSORGUNG: {
+        if(setting.stromversorgung == AKKU) {
+          display.print("Akku");
         }
-        else {
-          display.print("Strom-\nversorgung");
+        else if(setting.stromversorgung == NETZTEIL) {
+          display.print("Netzteil");
         }
-      break;
-    }
-    case MAX_STROM: {
-        if(modifySetting) {
-          sprintf(str, "%d.%dA", maxStrom/10, maxStrom%10);
-          display.print(str);
+        break;
+      }
+      case MAX_STROM: {
+        sprintf(str, "%d.%dA", setting.maxStrom/10, setting.maxStrom%10);
+        display.print(str);
+        break;
+      }
+      case NENNSPANNUNG: {
+        sprintf(str, "%dV", setting.nennspannung);
+        display.print(str);
+        break;
+      }
+      case AUTO_STANDBY: {
+        if(setting.autoStandby == true) {
+          display.print("Aktiviert");
         }
-        else {
-          display.print("Strom-\nbegrenzung");          
+        else if(setting.autoStandby == false) {
+          display.print("Deaktiviert");
         }
-      break;
-    }
-    case AUTO_STANDBY: {
-        if(modifySetting) {
-          if(autoStandby == true) {
-            display.print("Aktiviert");
-          }
-          else if(autoStandby == false) {
-            display.print("Deaktiviert");
-          }
-        }
-        else {
-          display.print("Auto-     Standby");
-        }
-      break;
-    }
-    case STANDBY_TEMP: {
-        if(modifySetting) {
-          sprintf(str, "%d C", standbyTemp);
-          display.print(str);
-        }
-        else {
-          display.print("Standby   Temperatur");          
-        }
-      break;
+        break;
+      }
+      case STANDBY_TEMP: {
+        sprintf(str, "%d C", setting.standbyTemp);
+        display.print(str);
+        break;
+      }
+      case STANDBY_DELAY: {
+        sprintf(str, "%ds", setting.standbyDelay);
+        display.print(str);
+        break;
+      }
     }
   }
-  
+ 
   oldScreen=SettingsScreen;
   display.display();
 }
@@ -328,10 +331,12 @@ void tasterAuswertung(){
       case SettingsScreen: {
         if(modifySetting) {
           switch(activeSetting) {
-            case STROMVERSORGUNG: stromversorgung = (Stromversorgung)((int)stromversorgung -1); break;
-            case MAX_STROM: maxStrom+=2; break;   //=0,2A
-            case AUTO_STANDBY: autoStandby=true; break;
-            case STANDBY_TEMP: standbyTemp+=10; break;
+            case STROMVERSORGUNG: setting.stromversorgung = (Stromversorgung)((int)setting.stromversorgung -1); break;
+            case MAX_STROM: setting.maxStrom+=2; break;
+            case NENNSPANNUNG: setting.nennspannung+=1; break;
+            case AUTO_STANDBY: setting.autoStandby=true; break;
+            case STANDBY_TEMP: setting.standbyTemp+=10; break;
+            case STANDBY_DELAY: setting.standbyDelay+=30; break;
           }
         }
         else {
@@ -347,11 +352,13 @@ void tasterAuswertung(){
       case SettingsScreen: {
         if(modifySetting) {
           switch(activeSetting) {
-            case STROMVERSORGUNG: stromversorgung = (Stromversorgung)((int)stromversorgung +1); break;
-            case MAX_STROM: maxStrom-=2; break;
-            case AUTO_STANDBY: autoStandby=false; break;
-            case STANDBY_TEMP: standbyTemp-=10; break;
-          }          
+            case STROMVERSORGUNG: setting.stromversorgung = (Stromversorgung)((int)setting.stromversorgung +1); break;
+            case MAX_STROM: setting.maxStrom-=2; break;
+            case NENNSPANNUNG: setting.nennspannung-=1; break;
+            case AUTO_STANDBY: setting.autoStandby=false; break;
+            case STANDBY_TEMP: setting.standbyTemp-=10; break;
+            case STANDBY_DELAY: setting.standbyDelay-=30; break;
+          }       
         }
         else {
           activeSetting = (Setting)((int)activeSetting + 1);
@@ -364,11 +371,13 @@ void tasterAuswertung(){
     if(modifySetting) {
       modifySetting=false;
       switch(activeSetting) {
-        case STROMVERSORGUNG: stromversorgung = (Stromversorgung)oldSettingValue; break;
-        case MAX_STROM: maxStrom = oldSettingValue; break;
-        case AUTO_STANDBY: autoStandby = oldSettingValue; break;
-        case STANDBY_TEMP: standbyTemp = oldSettingValue; break;
-      }  
+        case STROMVERSORGUNG: setting.stromversorgung = (Stromversorgung)oldSettingValue; break;
+        case MAX_STROM: setting.maxStrom = oldSettingValue; break;
+        case NENNSPANNUNG: setting.nennspannung = oldSettingValue; break;
+        case AUTO_STANDBY: setting.autoStandby = oldSettingValue; break;
+        case STANDBY_TEMP: setting.standbyTemp = oldSettingValue; break;
+        case STANDBY_DELAY: setting.standbyDelay = oldSettingValue; break;
+      } 
     }
     else {
       activeScreen=MainScreen; 
@@ -385,11 +394,14 @@ void tasterAuswertung(){
       }
       else {
         switch(activeSetting) {
-          case STROMVERSORGUNG: oldSettingValue = (uint8_t)stromversorgung; break;
-          case MAX_STROM: oldSettingValue = maxStrom; break;
-          case AUTO_STANDBY: oldSettingValue = autoStandby; break;
-          case STANDBY_TEMP: oldSettingValue = standbyTemp; break;
+          case STROMVERSORGUNG: oldSettingValue = (uint8_t)setting.stromversorgung; break;
+          case MAX_STROM: oldSettingValue = setting.maxStrom; break;
+          case NENNSPANNUNG: oldSettingValue = setting.nennspannung; break;
+          case AUTO_STANDBY: oldSettingValue = setting.autoStandby; break;
+          case STANDBY_TEMP: oldSettingValue = setting.standbyTemp; break;
+          case STANDBY_DELAY: oldSettingValue = setting.standbyDelay; break;          
         }
+        //oldSettingValue=*(&(setting.stromversorgung)+activeSetting);    // wäre fancyer
         modifySetting=true;
       }
     }
@@ -403,10 +415,12 @@ void tasterAuswertung(){
     }
   }
   tempSoll = constrain(tempSoll, 50, 450);
-  activeSetting = constrain(activeSetting, 0, 3);
-  stromversorgung = constrain(stromversorgung, 0, 1);
-  maxStrom = constrain(maxStrom, 10, 100);    // 1-10A
-  standbyTemp = constrain(standbyTemp, 50, 250);
+  activeSetting = constrain(activeSetting, 0, 5);
+  setting.stromversorgung = constrain(setting.stromversorgung, 0, 1);
+  setting.maxStrom = constrain(setting.maxStrom, 10, 100);    // 1-10A
+  setting.nennspannung = constrain(setting.nennspannung, 18, 48); 
+  setting.standbyTemp = constrain(setting.standbyTemp, 50, 250);
+  setting.standbyDelay = constrain(setting.standbyDelay, 30, 180);
 }
 
 void loop() {
