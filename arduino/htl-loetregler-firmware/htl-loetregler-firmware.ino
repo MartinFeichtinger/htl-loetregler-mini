@@ -162,14 +162,16 @@ void mainScreen() {
     display.print("C");
     display.drawCircle(56, 25, 1, WHITE);
 
-    // Volt
-    display.setTextSize(1);
-    display.setCursor(96 + 4 * 6, 18);
-    display.print("V");
-
-    // Batterieumrandung
-    display.drawRect(96, 3, 27, 11, WHITE);
-    display.drawRect(122, 6, 3, 5, WHITE);
+    if(setting.stromversorgung == AKKU) {
+      // Batterieumrandung
+      display.drawRect(96, 3, 27, 11, WHITE);
+      display.drawRect(122, 6, 3, 5, WHITE);
+    
+      // Volt
+      display.setTextSize(1);
+      display.setCursor(96 + 4 * 6, 18);
+      display.print("V");
+    }
   }
 
   // CLEAR Dynamic Objects
@@ -180,8 +182,13 @@ void mainScreen() {
     }
     display.fillRect(2, 24, 3 * 6 - 1, 7, BLACK); // Leistung
     display.fillRect(36, 24, 3 * 6 - 1, 7, BLACK); // Soll Temperatur
-    display.fillRect(96, 18, 4 * 6 - 1, 7, BLACK); // Batterie Spannung
-    display.fillRect(98, 5, 2 * 12 - 1, 7, BLACK); // Batterie Zustand
+    if(setting.stromversorgung == AKKU) {
+      display.fillRect(96, 18, 4 * 6 - 1, 7, BLACK); // Batterie Spannung
+      display.fillRect(98, 5, 2 * 12 - 1, 7, BLACK); // Batterie Zustand
+    }
+    else {
+      display.fillRect(120-5*6, 1, 120, 10, BLACK);
+    }
   }
 
 
@@ -222,22 +229,46 @@ void mainScreen() {
     sprintf(str, "%d", uint16_t(power));
     display.print(str);
 
-    // Batteriespannung
-    float uBatt = spannungBatterie();
-    display.setTextSize(1);
-    sprintf(str, "%3d", uint16_t(uBatt * 10));
-    display.setCursor(96, 18);
-    display.print(str[0]);
-    display.setCursor(96 + 6, 18);
-    display.print(str[1]);
-    display.setCursor(96 + 12, 18);
-    display.print(".");
-    display.setCursor(96 + 18, 18);
-    display.print(str[2]);
+    if(setting.stromversorgung == AKKU) {
+      // Batteriespannung
+      float uBatt = spannungBatterie();
+      display.setTextSize(1);
+      sprintf(str, "%3d", uint16_t(uBatt * 10));
+      display.setCursor(96, 18);
+      display.print(str[0]);
+      display.setCursor(96 + 6, 18);
+      display.print(str[1]);
+      display.setCursor(96 + 12, 18);
+      display.print(".");
+      display.setCursor(96 + 18, 18);
+      display.print(str[2]);
 
-    uint8_t z = (batterieZustand() * 12 + 50) / 100; // umrechnen auf 12 Skalenstriche
-    for (int x = 0; x < z; x++) {
-      display.drawLine(x * 2 + 98, 5, x * 2 + 98, 11, WHITE);
+      uint8_t z = (batterieZustand() * 12 + 50) / 100; // umrechnen auf 12 Skalenstriche
+      for (int x = 0; x < z; x++) {
+        display.drawLine(x * 2 + 98, 5, x * 2 + 98, 11, WHITE);
+      }
+    }
+    else if(setting.stromversorgung == NETZTEIL) {
+      // Netzteilspannung
+      float uNetz = spannungBatterie();
+      display.setTextSize(1);
+      sprintf(str, "%d.%dV", uint16_t(uNetz), uint8_t(uNetz*10)%10);
+      if(uNetz < 10) {
+        display.setCursor(120-4*6, 1);
+      }
+      else {
+        display.setCursor(120-5*6, 1);
+      }
+      display.print(str);
+
+      sprintf(str, "%d.%dA", setting.maxStrom/10, setting.maxStrom%10);
+      if(setting.maxStrom < 100) {
+        display.setCursor(120-4*6, 11);
+      }
+      else {
+        display.setCursor(120-5*6, 11);
+      }
+      display.print(str);
     }
   }
 
@@ -317,7 +348,7 @@ uint8_t batterieZustand() {
 
 void regler(){
   int stromMesswert;
-  static uint8_t dutyCycle=20;
+  static uint8_t dutyCycle=10;
 
   tempSpitze = temperaturSpitze();
   if ((!standby && (tempSpitze < tempSoll)) || (standby && (tempSpitze < 150))) {
