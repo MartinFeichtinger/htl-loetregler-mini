@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
 #include "button.h"
 
 
@@ -50,12 +51,12 @@ String settingName[6]={"Strom-\nversorgung", "Strom-\nbegrenzung", "Nenn-\nspann
 enum Stromversorgung {AKKU=0, NETZTEIL=1};
 
 struct Settings {
-  enum Stromversorgung stromversorgung=AKKU;
-  uint8_t maxStrom=30;  // entspricht 3A
-  uint8_t nennspannung=48;
-  uint8_t standbyTemp=150;
-  bool autoStandby=true;
-  uint8_t standbyDelay=60;
+  enum Stromversorgung stromversorgung;
+  uint8_t maxStrom;
+  uint8_t nennspannung;
+  uint8_t standbyTemp;
+  bool autoStandby;
+  uint8_t standbyDelay;
 } setting;
   
 bool modifySetting=false;
@@ -80,6 +81,20 @@ void setup() {
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3c, false, false)) {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;); // Don't proceed, loop forever
+  }
+  
+  if(EEPROM.read(1023) == 'T') {
+    EEPROM.get(0, setting);
+  }
+  else {
+    setting.stromversorgung=AKKU;
+    setting.maxStrom=30;  // entspricht 3A
+    setting.nennspannung=48;
+    setting.standbyTemp=150;
+    setting.autoStandby=true;
+    setting.standbyDelay=60;
+
+    EEPROM.write(1023, 'T');
   }
 
   display.clearDisplay();
@@ -391,6 +406,7 @@ void tasterAuswertung(){
     else {
       if(modifySetting) {
         modifySetting=false;  // Der Wert wir gespeichert und man kommt zurück in MENU
+        EEPROM.put(0, setting);
       }
       else {
         switch(activeSetting) {
@@ -417,7 +433,7 @@ void tasterAuswertung(){
   tempSoll = constrain(tempSoll, 50, 450);
   activeSetting = constrain(activeSetting, 0, 5);
   setting.stromversorgung = constrain(setting.stromversorgung, 0, 1);
-  setting.maxStrom = constrain(setting.maxStrom, 10, 100);    // 1-10A
+  setting.maxStrom = constrain(setting.maxStrom, 1, 100);    // 1-10A
   setting.nennspannung = constrain(setting.nennspannung, 18, 48); 
   setting.standbyTemp = constrain(setting.standbyTemp, 50, 250);
   setting.standbyDelay = constrain(setting.standbyDelay, 30, 180);
