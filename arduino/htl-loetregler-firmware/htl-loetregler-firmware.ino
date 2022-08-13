@@ -97,6 +97,8 @@ void setup() {
     EEPROM.write(1023, 'T');
   }
 
+  TCCR2B = TCCR2B & B11111000 | B00000001;  // set pwm-frequency 31372.55 Hz
+
   display.clearDisplay();
   display.setCursor(10,0);
   display.setTextSize(2);
@@ -348,7 +350,7 @@ uint8_t batterieZustand() {
 
 void regler(){
   int stromMesswert;
-  static uint8_t dutyCycle=10;
+  static uint8_t dutyCycle=20;
 
   tempSpitze = temperaturSpitze();
   if ((!standby && (tempSpitze < tempSoll)) || (standby && (tempSpitze < 150))) {
