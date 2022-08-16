@@ -60,7 +60,6 @@ struct Settings {
 } setting;
   
 bool modifySetting=false;
-float oldSettingValue;
 
 enum Screen {BootScreen, MainScreen, SettingsScreen} activeScreen = BootScreen;
 enum Screen oldScreen;
@@ -353,7 +352,7 @@ void regler(){
   static uint8_t dutyCycle=20;
 
   tempSpitze = temperaturSpitze();
-  if ((!standby && (tempSpitze < tempSoll)) || (standby && (tempSpitze < 150))) {
+  if ((!standby && (tempSpitze < tempSoll)) || (standby && (tempSpitze < setting.standbyTemp))) {
     analogWrite(PIN_Heizelement, dutyCycle); // nicht 100% PWM (=255), damit der Bootstrap-Kondensator nachladen kann!
   }
   if(tempSpitze+80 < tempSoll){
@@ -409,7 +408,7 @@ void tasterAuswertung(){
           }       
         }
         else {
-          activeSetting = (Setting)((int)activeSetting + 1);
+          activeSetting = (Setting)((int)activeSetting + 1);  // scheiß c++
         }
         break;
       }
@@ -418,14 +417,7 @@ void tasterAuswertung(){
   if (buttons.back->getEvent() == Button::PressedEvent) {
     if(modifySetting) {
       modifySetting=false;
-      switch(activeSetting) {
-        case STROMVERSORGUNG: setting.stromversorgung = (Stromversorgung)oldSettingValue; break;
-        case MAX_STROM: setting.maxStrom = oldSettingValue; break;
-        case NENNSPANNUNG: setting.nennspannung = oldSettingValue; break;
-        case AUTO_STANDBY: setting.autoStandby = oldSettingValue; break;
-        case STANDBY_TEMP: setting.standbyTemp = oldSettingValue; break;
-        case STANDBY_DELAY: setting.standbyDelay = oldSettingValue; break;
-      } 
+      setting=EEPROM.get(0, setting);
     }
     else {
       activeScreen=MainScreen; 
@@ -442,15 +434,6 @@ void tasterAuswertung(){
         EEPROM.put(0, setting);
       }
       else {
-        switch(activeSetting) {
-          case STROMVERSORGUNG: oldSettingValue = (uint8_t)setting.stromversorgung; break;
-          case MAX_STROM: oldSettingValue = setting.maxStrom; break;
-          case NENNSPANNUNG: oldSettingValue = setting.nennspannung; break;
-          case AUTO_STANDBY: oldSettingValue = setting.autoStandby; break;
-          case STANDBY_TEMP: oldSettingValue = setting.standbyTemp; break;
-          case STANDBY_DELAY: oldSettingValue = setting.standbyDelay; break;          
-        }
-        //oldSettingValue=*(&(setting.stromversorgung)+activeSetting);    // wäre fancyer
         modifySetting=true;
       }
     }
