@@ -183,6 +183,7 @@ void mainScreen() {
     }
     display.fillRect(2, 24, 3 * 6 - 1, 7, BLACK); // Leistung
     display.fillRect(36, 24, 3 * 6 - 1, 7, BLACK); // Soll Temperatur
+    display.fillRect(80, 24, 7 * 6 - 1, 7, BLACK); // Standby-Anzeige
     if(setting.stromversorgung == AKKU) {
       display.fillRect(96, 18, 4 * 6 - 1, 7, BLACK); // Batterie Spannung
       display.fillRect(98, 5, 2 * 12 - 1, 7, BLACK); // Batterie Zustand
@@ -229,6 +230,13 @@ void mainScreen() {
     display.setTextSize(1);
     sprintf(str, "%d", uint16_t(power));
     display.print(str);
+
+    // Standby-Anzeige
+    if(standby){
+      display.setCursor(80, 24);
+      display.setTextSize(1);
+      display.print("STANDBY");
+    }
 
     if(setting.stromversorgung == AKKU) {
       // Batteriespannung
