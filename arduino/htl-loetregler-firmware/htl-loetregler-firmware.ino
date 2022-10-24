@@ -45,6 +45,7 @@ uint16_t tempSpitze = 999;
 bool standby = false;
 uint32_t timeLastTempIncrease = 0;
 bool loetkolbenVerbunden=false;
+float leistung;
 
 enum Setting {STROMVERSORGUNG=0, MAX_STROM=1, NENNSPANNUNG=2, AUTO_STANDBY=3, STANDBY_TEMP=4, STANDBY_DELAY=5} activeSetting=STROMVERSORGUNG;
 String settingName[6]={"Strom-\nversorgung", "Strom-\nbegrenzung", "Nenn-\nspannung", "Auto-\nStandby", "Standby\nTemperatur", "Standby-\nDelay"}; 
@@ -225,10 +226,11 @@ void mainScreen() {
 
 
     // Leistung
-    float power = 125;
-    display.setCursor(2, 24);
+    if(leistung > 100) display.setCursor(2, 24);
+    else if(leistung > 10) display.setCursor(2+6, 24);
+    else display.setCursor(2+12, 24);
     display.setTextSize(1);
-    sprintf(str, "%d", uint16_t(power));
+    sprintf(str, "%d", uint16_t(leistung));
     display.print(str);
 
     // Standby-Anzeige
@@ -357,6 +359,7 @@ uint8_t batterieZustand() {
 
 void regler(){
   float stromMesswert;
+  static float stromMittelwert = float(setting.maxStrom)/10;
   static uint8_t dutyCycle=20;
 
   tempSpitze = temperaturSpitze();
@@ -384,7 +387,13 @@ void regler(){
       if(dutyCycle < 250) dutyCycle++;
     }
   }
-  Serial.println(dutyCycle);
+  Serial.print(dutyCycle);
+
+  // Berechnung der Leistung
+  stromMittelwert = 0.95 * stromMittelwert + 0.05 * stromMesswert;
+  leistung = stromMittelwert * spannungBatterie();
+  Serial.print(", ");
+  Serial.println(leistung);
 }
 
 void tasterAuswertung(){
