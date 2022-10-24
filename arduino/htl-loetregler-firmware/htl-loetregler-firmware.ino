@@ -52,7 +52,7 @@ enum Stromversorgung {AKKU=0, NETZTEIL=1};
 
 struct Settings {
   enum Stromversorgung stromversorgung;
-  uint8_t maxStrom;
+  uint8_t maxStrom;     // Wert 15 entspricht 1.5A
   uint8_t nennspannung;
   uint8_t standbyTemp;
   bool autoStandby;
@@ -348,7 +348,7 @@ uint8_t batterieZustand() {
 }
 
 void regler(){
-  int stromMesswert;
+  float stromMesswert;
   static uint8_t dutyCycle=20;
 
   tempSpitze = temperaturSpitze();
@@ -361,8 +361,22 @@ void regler(){
   }else{
     delay(10); // max. 10ms durchgehend Heizen
   }
+
   stromMesswert = strom();
   analogWrite(PIN_Heizelement, 0);
+  Serial.print(stromMesswert, 2);
+  Serial.print(", ");
+
+  // Regelung des Stroms mittels dem DutyCycle
+  if(stromMesswert > 0){
+    if(stromMesswert > (float(setting.maxStrom) / 10) - 0.1){       // setting.maxStrom ist ein uint8_t. der wert 30 entspricht 3.0 Amper. -0.1 damit der regler nicht über die grenze geht
+      if(dutyCycle > 0) dutyCycle--;
+    }
+    else{
+      if(dutyCycle < 250) dutyCycle++;
+    }
+  }
+  Serial.println(dutyCycle);
 }
 
 void tasterAuswertung(){
